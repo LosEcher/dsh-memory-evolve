@@ -57,7 +57,7 @@ html[data-dsh-ui-wide-bubble="on"] [data-time-hover-root] > div:first-of-type {
   display: flex;
   gap: 6px;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--dsw-alias-border-l, rgba(128, 128, 128, 0.25));
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.25));
   /* 跟随列表区背景（token 兜底），不设固定底色以免深浅主题突兀 */
   background: transparent;
 }
@@ -85,7 +85,7 @@ html[data-dsh-ui-wide-bubble="on"] [data-time-hover-root] > div:first-of-type {
 .dsh-ui-filter-btn-active,
 .dsh-ui-filter-btn-active:hover {
   background: var(--dsw-alias-button-tool-bar-fill-invisible, rgba(128, 128, 128, 0.18));
-  border-color: var(--dsw-alias-border-l, rgba(128, 128, 128, 0.3));
+  border-color: var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.3));
   color: var(--dsw-alias-brand-primary, inherit);
   font-weight: 600;
 }
@@ -99,7 +99,7 @@ html[data-dsh-ui-wide-bubble="on"] [data-time-hover-root] > div:first-of-type {
   margin-left: 6px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--dsw-alias-state-business-secondary, rgba(64, 128, 255, 0.16));
+  background: var(--dsw-alias-state-business-tertiary, rgba(64, 128, 255, 0.16));
   color: var(--dsw-alias-state-business-primary, #3b82f6);
   font-size: 11px;
   line-height: 16px;

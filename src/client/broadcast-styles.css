@@ -67,7 +67,7 @@
 }
 
 .bb-card:hover {
-  border-color: var(--dsw-alias-border-l, rgba(128, 128, 128, 0.4));
+  border-color: var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.4));
   box-shadow: 0 2px 6px color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent);
 }
 
@@ -302,8 +302,8 @@
 }
 
 .bb-btn-primary {
-  border-color: var(--dsw-alias-state-accent-primary, #4c8dff);
-  color: var(--dsw-alias-state-accent-primary, #4c8dff);
+  border-color: var(--dsw-alias-state-business-primary, #4c8dff);
+  color: var(--dsw-alias-state-business-primary, #4c8dff);
 }
 
 /* 危险按钮：**实底红 + 白字**（用户反馈浅红底/红字在暗色主题下看不清；
@@ -324,7 +324,7 @@
 
 .bb-chip {
   appearance: none;
-  border: 1px solid var(--dsw-alias-border-l, rgba(128, 128, 128, 0.3));
+  border: 1px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.3));
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 12px;
@@ -384,8 +384,8 @@
 }
 
 .bb-search:focus {
-  border-color: var(--dsw-alias-state-accent-primary, #4c8dff);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-accent-primary, #4c8dff) 18%, transparent);
+  border-color: var(--dsw-alias-state-business-primary, #4c8dff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary, #4c8dff) 18%, transparent);
 }
 
 .bb-pager {

@@ -338,7 +338,7 @@
   border: 1px solid var(--dsw-alias-interactive-bg-hover);
   border-radius: 6px;
   background: var(--dsw-alias-button-tool-bar-fill);
-  color: var(--dsw-alias-interactive-fg-default);
+  color: var(--dsw-alias-label-primary);
   padding: 6px 14px;
   font-size: 13px;
   cursor: pointer;

@@ -611,7 +611,7 @@
 .advisor-severity-info {
   border-color: var(--dsw-alias-border-l2);
   background: transparent;
-  color: var(--dsw-alias-text-tertiary);
+  color: var(--dsw-alias-label-tertiary);
   opacity: 0.85;
 }
 
@@ -976,7 +976,7 @@
   padding: 4px 6px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 4px;
-  background: var(--dsw-alias-fill-muted);
+  background: var(--dsw-alias-bg-skeleton);
 }
 
 .advisor-conversation-stats {
@@ -1126,7 +1126,7 @@
   margin-left: 6px;
   font-weight: normal;
   font-size: 9px;
-  color: var(--dsw-alias-text-tertiary);
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .advisor-settings-grid {

@@ -49,7 +49,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l);
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
 .sb-search {
@@ -75,7 +75,7 @@
   font-size: 12px;
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base));
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
   outline: none;
 }
@@ -113,7 +113,7 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
@@ -146,7 +146,7 @@
 /* 上部：技能列表（55%，主视图），与下部以分隔线隔开 */
 .sb-section--skills {
   flex: 55;
-  border-bottom: 1px solid var(--dsw-alias-border-l);
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
 /* 下部：选中技能的目录树（45%） */
@@ -163,7 +163,7 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border-left: 1px solid var(--dsw-alias-border-l);
+  border-left: 1px solid var(--dsw-alias-border-l2);
 }
 
 /* 窄窗口（弹窗 max-width: calc(100vw - 48px)）：编辑器收窄，左栏让位 */
@@ -180,7 +180,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l);
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
 .sb-pane-title {
@@ -221,7 +221,7 @@
   padding: 0 10px;
   font: inherit;
   font-size: 12px;
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
   background: transparent;
   color: var(--dsw-alias-label-primary);
@@ -245,7 +245,7 @@
 .sb-btn--primary {
   border-color: transparent;
   background: var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary));
-  color: var(--dsw-alias-label-inverted, #fff);
+  color: var(--dsw-alias-label-primary-inverted, #fff);
 }
 
 .sb-btn--primary:hover:not(:disabled) {
@@ -268,7 +268,7 @@
 .sb-btn--danger {
   border-color: transparent;
   background: var(--dsw-alias-state-error-primary);
-  color: var(--dsw-alias-label-inverted, #fff);
+  color: var(--dsw-alias-label-primary-inverted, #fff);
 }
 
 .sb-btn--danger:hover:not(:disabled) {
@@ -459,7 +459,7 @@
   font-size: 12px;
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base));
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
   outline: none;
   cursor: pointer;
@@ -472,7 +472,7 @@
   flex-wrap: wrap;
   row-gap: 2px;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l);
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
 .sb-crumb-seg {
@@ -605,7 +605,7 @@
   gap: 8px;
   height: 40px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l);
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
 .sb-editor-filename {
@@ -659,7 +659,7 @@
   position: sticky;
   left: 0;
   padding: 8px 8px 8px 12px;
-  border-right: 1px solid var(--dsw-alias-border-l);
+  border-right: 1px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-base);
   font-family: var(--dsw-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12px;
@@ -692,7 +692,7 @@
 .sb-gutter--edit {
   position: static;
   overflow: hidden;
-  border-right: 1px solid var(--dsw-alias-border-l);
+  border-right: 1px solid var(--dsw-alias-border-l2);
 }
 
 .sb-textarea {
@@ -719,7 +719,7 @@
   gap: 12px;
   height: 26px;
   padding: 0 12px;
-  border-top: 1px solid var(--dsw-alias-border-l);
+  border-top: 1px solid var(--dsw-alias-border-l2);
   font-size: 11px;
   color: var(--dsw-alias-label-tertiary);
   overflow: hidden;
@@ -748,7 +748,7 @@
 /* 面板级状态条：固定在面板底部，编辑器隐藏时也可见 */
 .sb-statusbar--panel {
   height: 28px;
-  border-top: 1px solid var(--dsw-alias-border-l);
+  border-top: 1px solid var(--dsw-alias-border-l2);
 }
 
 /* 筛选 chips 同行的分隔竖线 */
@@ -757,7 +757,7 @@
   align-self: stretch;
   width: 1px;
   margin: 0 4px;
-  background: var(--dsw-alias-border-l);
+  background: var(--dsw-alias-border-l2);
 }
 
 /* ---------- 放弃修改确认弹窗 ---------- */
@@ -776,7 +776,7 @@
   width: 360px;
   max-width: calc(100vw - 48px);
   padding: 16px;
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   background: var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-base));
 }
@@ -816,14 +816,14 @@
 .sb-editor-scroll::-webkit-scrollbar-thumb,
 .sb-textarea::-webkit-scrollbar-thumb {
   border-radius: 4px;
-  background: var(--dsw-alias-scrollbar-bg-l, var(--dsw-alias-border-l));
+  background: var(--dsw-alias-scrollbar-bg-l1, var(--dsw-alias-border-l2));
 }
 
 .sb-list::-webkit-scrollbar-thumb:hover,
 .sb-tree::-webkit-scrollbar-thumb:hover,
 .sb-editor-scroll::-webkit-scrollbar-thumb:hover,
 .sb-textarea::-webkit-scrollbar-thumb:hover {
-  background: var(--dsw-alias-scrollbar-hover-l, var(--dsw-alias-label-tertiary));
+  background: var(--dsw-alias-scrollbar-hover-l1, var(--dsw-alias-label-tertiary));
 }
 
 .sb-list::-webkit-scrollbar-track,
@@ -907,7 +907,7 @@
   font: inherit;
   font-size: 11px;
   line-height: 22px;
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 11px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
@@ -962,7 +962,7 @@
   font: inherit;
   font-size: 11px;
   line-height: 20px;
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 10px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
@@ -976,7 +976,7 @@
 }
 
 .sb-toggle--disabled {
-  border-color: var(--dsw-alias-state-warn-border, var(--dsw-alias-border-l));
+  border-color: var(--dsw-alias-state-warn-secondary, var(--dsw-alias-border-l2));
   color: var(--dsw-static-amber-5, var(--dsw-alias-state-warn-label));
 }
 
@@ -990,13 +990,13 @@
   margin: 0 8px 6px;
   padding: 4px 8px;
   font-size: 11px;
-  color: var(--dsw-static-red-5, var(--dsw-alias-state-danger-label));
+  color: var(--dsw-static-red-5, var(--dsw-alias-state-error-primary));
   background: color-mix(
     in srgb,
-    var(--dsw-static-red-5, var(--dsw-alias-state-danger-label)) 10%,
+    var(--dsw-static-red-5, var(--dsw-alias-state-error-primary)) 10%,
     transparent
   );
-  border: 1px solid var(--dsw-alias-state-danger-border, var(--dsw-alias-border-l));
+  border: 1px solid var(--dsw-alias-state-error-secondary, var(--dsw-alias-border-l2));
   border-radius: 6px;
 }
 
@@ -1017,7 +1017,7 @@
   justify-content: center;
   gap: 8px;
   padding: 6px 8px;
-  border-top: 1px solid var(--dsw-alias-border-l);
+  border-top: 1px solid var(--dsw-alias-border-l2);
 }
 
 .sb-pager-info {
@@ -1053,9 +1053,9 @@
   padding: 0 10px;
   font: inherit;
   font-size: 12px;
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
-  background: var(--dsw-alias-input-bg, transparent);
+  background: var(--dsw-alias-bg-layer-1, transparent);
   color: var(--dsw-alias-label-primary);
 }
 
@@ -1077,7 +1077,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border: 1px solid var(--dsw-alias-border-l);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
 }
 
@@ -1093,7 +1093,7 @@
 }
 
 .sb-dirs-path--missing {
-  color: var(--dsw-static-red-5, var(--dsw-alias-state-danger-label));
+  color: var(--dsw-static-red-5, var(--dsw-alias-state-error-primary));
   text-decoration: line-through;
 }
 

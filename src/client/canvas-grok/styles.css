@@ -28,7 +28,7 @@
   gap: 8px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--dsw-alias-interactive-bg-hover);
-  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base));
   z-index: 3;
 }
 
@@ -259,7 +259,7 @@
   flex-direction: column;
   border: 1px solid var(--dsw-alias-interactive-bg-hover);
   border-radius: 10px;
-  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base));
   box-shadow: 0 1px 2px color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent);
   overflow: hidden;
   /* 卡片自身也是合成层，拖动时不带动整板重排 */
@@ -389,8 +389,8 @@
 }
 
 .cg-badge-warn {
-  background: color-mix(in srgb, var(--dsw-alias-state-warning-primary, #b8860b) 16%, transparent);
-  color: var(--dsw-alias-state-warning-primary, #b8860b);
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #b8860b) 16%, transparent);
+  color: var(--dsw-alias-state-warn-primary, #b8860b);
 }
 
 .cg-card-body {
@@ -578,7 +578,7 @@
   max-height: min(72vh, 640px);
   overflow: auto;
   box-sizing: border-box;
-  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base));
   color: var(--dsw-alias-label-primary);
   border: 1px solid var(--dsw-alias-interactive-bg-hover);
   border-radius: 12px;
@@ -735,7 +735,7 @@
   z-index: 9;
   padding: 6px 12px;
   border-radius: 999px;
-  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base));
   border: 1px solid var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-primary);
   font-size: 12px;

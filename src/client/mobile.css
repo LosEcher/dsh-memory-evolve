@@ -228,7 +228,7 @@ html[data-dsh-mobile] .sb-main {
   flex: none;
   min-height: 40vh;
   border-left: none;
-  border-top: 1px solid var(--dsw-alias-border-l);
+  border-top: 1px solid var(--dsw-alias-border-l2);
 }
 
 /* 左栏上下分区（技能列表 55% / 目录树 45%）：纵排后 flex 比例无意义，
@@ -569,7 +569,7 @@ html[data-dsh-mobile][data-dsh-mobile-sheet] [data-composer-card] > [data-input-
   padding-right: min(48%, 200px);
   border-radius: 14px;
   background: var(--dsw-alias-bg-base, #1e1e1e);
-  border: 1px solid var(--dsw-alias-border-l, rgba(128, 128, 128, 0.25));
+  border: 1px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.25));
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.22);
 }
 
