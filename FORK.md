@@ -1,9 +1,25 @@
 # FORK 说明 — dsh-memory-evolve（dsplugins fork）
 
-- **上游**：https://github.com/csyangwen/dsh-memory-evolve （`git remote` 名为 `upstream`，未推回）
+- **上游**：https://github.com/csyangwen/dsh-memory-evolve （`git remote` 名为 `upstream`）
+- **本 fork 远端**：`origin` = https://github.com/LosEcher/dsh-memory-evolve （本仓的 `main` 推到这里）
 - **fork 时间**：2026-09-22
 - **fork 基线**：`upstream/main` @ `c337dc1`（`fix(sync): 修复记忆正文被同步链路损坏成 U+FFFD 的根因`），版本 0.1.0
 - **本地提交**：`46422bb fix(tokens): 24 个无效 --dsw-alias-* 设计令牌整改（88 处 / 9 文件）`
+- **2026-10-16 合并**：`d669efe` 合入 `upstream/main` @ `e6f6b84`（落后 10 个提交，0 冲突）。
+  上游在这 10 个提交里做了 0.2.0-rc.1 兼容，其中 `e6f6b84` 新增
+  `src/client/ui-icons.ts` 的 `resolveIcon(新名, 旧名)`：按「新名 → 旧名 → Medium 变体 →
+  `MissingIcon`(渲染 null)」动态解析 `ui-primitives` 命名空间，**永不返回 undefined**，
+  修掉了技能管理 / 无限画板 Tab 打开即空白（`slot entry crashed` / React #130）。
+  合并后 fork **同时**具备上游的图标兼容与本地的令牌整改 —— 二者此前各缺一半：
+
+  | 版本 | 失效设计令牌（对 harness 白名单 `comm`） | 图标兼容 |
+  |---|---|---|
+  | `upstream/main` @ e6f6b84 | **24 个** | ✅ shim |
+  | 本 fork 合并前 | 1 个 | ❌ 产物 30 处旧名 |
+  | 本 fork 合并后 | 1 个 | ✅ shim |
+
+  产物由合并后源码重建（不是 git 对二进制产物的自动合并）：二者 md5 恰好相同
+  (`15d9ba2f52adf7885e68340cd9496eb8`)，属**事后验证**而非事前假设。
 - **为什么 fork**：上游 `src/client` 使用了 24 个在当前 DSH 设计令牌白名单里**不存在**的
   `--dsw-alias-*` 令牌。失效令牌在渲染时静默 fallback 到硬编码 hex，导致浅色/深色主题错乱。
   按 dsplugins 治理铁律（外部插件不合标准 → fork 到 dsplugins 修，不改 `node_modules`）处理。
@@ -59,19 +75,32 @@ npm test     # 829 tests / 827 pass / 2 fail
 `resolveProviders：auto 按平台排序并探测` 与 `控制器：启用注册、禁用注销、状态`，
 根因是本机 `PATH` 里没有 `rg`，属环境性失败，与本次改动无关。
 
-## 启用步骤（未执行，需重启窗口）
+## 启用状态（2026-10-16 已执行）
 
-fork 目前**未被任何 profile 引用**，宿主仍加载 github 版本。启用 = 两步，且会触发宿主重启：
+fork **已被 web profile 引用**，宿主加载的是本 fork 而非 github 版本：
+
+```jsonc
+// ~/.dsh/profiles/web/package.json
+"dsh-memory-evolve": "link:/Users/echerlos/syncfolder/project/dsplugins/dsh-memory-evolve"
+```
+
+实际执行的是 `dsh plugin --profile web add <fork 目录>`（它会同时改依赖并跑 pnpm
+install），**没有另外手动重启** —— 见下方 ⚠️。
+
+启用前的实况（值得记）：宿主原本跑的是 lockfile 里钉住的 tarball
+`6aa2837`（2026-08-14 快照），而不是 `#main` 的当前内容 —— specifier 写着 `#main`
+并不等于跑的是最新。该快照的产物里 30 处旧图标名，正是技能 Tab 空白的根因。
+
+验证（全部实测）：插件树 `include:dsh-memory-evolve` = active；profile 解析到的
+`lib/client.js` md5 = `15d9ba2f…`（与本仓一致）；会话页「技能」Tab 与其「技能管理」
+子页（用到旧名图标的 `SkillList` + `FileTree`）均正常渲染；`data-slot-error` = 0；
+`dsh-telemetry` 新增事件 = 0。
 
 ```bash
-cd ~/.dsh/profiles/web
-# 1) 依赖从 github: 改为本地 link:（与其它自研插件一致）
-#    "dsh-memory-evolve": "link:/Users/echerlos/syncfolder/project/dsplugins/dsh-memory-evolve"
-#    ⚠️ 改完必须“同一轮内”立刻 pnpm install —— daemon 监听 package.json mtime，
-#       约 4s 内触发 AUTO-RELOAD，install 未完成会导致 preflight 连续失败（backoff 最长 10min）
-pnpm install
-# 2) 重启由 daemon 自动完成（AUTO-RELOAD: profile-plugin-manifest → 等 host drain）
-#    验证：browser 刷新后，插件「设置」卡片与记忆面板在浅色主题下颜色正常
+# ⚠️ 关键坑：daemon 监听 profile 的 package.json mtime，约 4s 内触发 AUTO-RELOAD
+#   (profile-plugin-manifest)。所以**不要再手动调 dsh-web-restart-detached.sh** ——
+#   两次请求会被合并成一次 "owed restart"，60s 后再补一次，期间 3080 短暂不可达。
+#   正确做法：只做 plugin add，然后等 daemon 自己 healthy。
 ```
 
 回滚 = 把依赖改回 `github:csyangwen/dsh-memory-evolve#main` 并 `pnpm install`。
