@@ -24,7 +24,7 @@ test('buildInjectionEvent 归一化：脏数字不变成 NaN，未知 mode 置 n
     keyMode: 'weird',
     keyIds: ['a', '', null, 7],
   }, { ts: Date.UTC(2026, 9, 22, 12) })
-  assert.equal(ev.op, 'snapshot.materialize')
+  assert.equal(ev.op, 'snapshot.render')
   assert.equal(ev.entries.memory, 243)
   assert.equal(ev.entries.user, 0)   // 非数字 ⇒ 0，而不是 NaN
   assert.equal(ev.entries.key, 0)    // 负数 ⇒ 0
