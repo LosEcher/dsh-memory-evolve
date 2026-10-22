@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { TodoStore, TODO_HEADER, TODO_TARGETS, stampTodoLine, todoToolDefinition } from '../lib/todo.js'
+import { TodoStore, TODO_HEADER, TODO_TARGETS, parseTodoEntry, stampTodoLine, todoToolDefinition } from '../lib/todo.js'
 import { ArchiveStore, MemoryStore, SuggestionQueue, projectHash, todayStamp } from '../lib/store.js'
 import { approveSuggestions, archiveSuggestions, enqueueSuggestion, promoteArchived, suggestToolDefinition } from '../lib/review.js'
 import { installApi } from '../lib/api.js'
@@ -771,3 +771,80 @@ test('todo disabled: snapshot omits dtodo guidance', async () => {
   assert.ok(enabled.includes('\n- 待办（dtodo）：'))
   assert.ok(!enabled.includes('\n\n待办（dtodo）：'))
 })
+
+test('project tags: parse + stamp round-trip', () => {
+  const raw = stampTodoLine({ time: '2026-10-22 10:00', id: 'abcd1234', quadrant: 'q1', status: 'pending', projects: ['dsfolder', 'los', 'dsfolder', '  '] }, '跨项目的事')
+  assert.ok(raw.includes('[proj: dsfolder, los]'), raw)
+  const parsed = parseTodoEntry(raw)
+  assert.deepEqual(parsed.projects, ['dsfolder', 'los'])
+  assert.equal(parsed.quadrant, 'q1')
+  // 无标签时不得写出空 `[proj: ]`（否则每行都会长出一个空标签）
+  const bare = stampTodoLine({ time: '2026-10-22 10:00', id: 'abcd1235', status: 'pending', projects: [] }, '无标签')
+  assert.ok(!bare.includes('[proj'), bare)
+  assert.deepEqual(parseTodoEntry(bare).projects, [])
+})
+
+test('project tags survive update/done (rebuild must not drop them)', () => {
+  const dir = tempDir()
+  try {
+    const store = new TodoStore(dir)
+    const added = store.addTodo('work', '跨项目：dsfolder × los', { projects: ['dsfolder', 'los'], quadrant: 'q1' }, undefined)
+    // 负向控制：整行会被重建，漏 stamp 就会静默丢标签（本用例就是拦这个）
+    store.updateTodo('work', added.id, { due: '2026-11-01' }, undefined)
+    let item = parseTodoEntry(store.itemsOf('work').find((i) => i.id === added.id).raw)
+    assert.deepEqual(item.projects, ['dsfolder', 'los'])
+    assert.equal(item.due, '2026-11-01')
+    store.doneTodo('work', added.id, undefined)
+    item = parseTodoEntry(store.itemsOf('work').find((i) => i.id === added.id).raw)
+    assert.deepEqual(item.projects, ['dsfolder', 'los'])
+    assert.equal(item.status, 'done')
+    // 清除：显式传空数组才算清（不传=保留）
+    store.updateTodo('work', added.id, { projects: [] }, undefined)
+    item = parseTodoEntry(store.itemsOf('work').find((i) => i.id === added.id).raw)
+    assert.deepEqual(item.projects, [])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('project tags: list filter matches any value and `none`', () => {
+  const dir = tempDir()
+  try {
+    const store = new TodoStore(dir)
+    store.addTodo('work', '只碰 dsfolder', { projects: ['dsfolder'] }, undefined)
+    store.addTodo('work', '碰 los', { projects: ['los'] }, undefined)
+    store.addTodo('work', '两个都碰', { projects: ['dsfolder', 'los'] }, undefined)
+    store.addTodo('work', '没标签', {}, undefined)
+
+    const pick = (filter) => store.listTodos(['work'], { all: true, project: filter }, undefined, todayStamp()).items.map((i) => i.text).sort()
+    assert.deepEqual(pick('dsfolder'), ['两个都碰', '只碰 dsfolder'].sort())
+    assert.deepEqual(pick('los'), ['两个都碰', '碰 los'].sort())
+    assert.deepEqual(pick('dsfolder,los'), ['两个都碰', '只碰 dsfolder', '碰 los'].sort())
+    assert.deepEqual(pick('none'), ['没标签'])
+    assert.equal(pick('all').length, 4)
+    // 大小写不敏感（用户手打项目名不该因大小写漏掉）
+    assert.deepEqual(pick('DSFolder'), ['两个都碰', '只碰 dsfolder'].sort())
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('dtodo tool exposes projects + project filter and renders the tag', async () => {
+  const dir = tempDir()
+  try {
+    const store = new TodoStore(dir)
+    const tool = todoToolDefinition({ todoToolName: 'dtodo' }, store)
+    assert.equal(tool.parameters.properties.projects.type, 'array')
+    assert.equal(tool.parameters.properties.project.type, 'string')
+    const added = await tool.execute({ action: 'add', target: 'work', content: '替写者守边界', projects: ['dsfolder', ' los '] }, {})
+    assert.equal(added.ok, true, added.message)
+    const listed = await tool.execute({ action: 'list', target: 'work', project: 'los', all: true }, {})
+    assert.equal(listed.ok, true)
+    assert.ok(listed.message.includes('[proj: dsfolder,los]'), listed.message)
+    const none = await tool.execute({ action: 'list', target: 'work', project: 'none', all: true }, {})
+    assert.ok(!none.message.includes('替写者守边界'), none.message)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
