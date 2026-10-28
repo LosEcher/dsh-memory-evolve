@@ -686,3 +686,51 @@ test('searchDocsMode：校验合法枚举，null=未设置合法，非法值拒�
   assert.throws(() => validateRuntimePatch('searchDocsMode', 'everything'), /searchDocsMode/)
   assert.throws(() => validateRuntimePatch('searchDocsMode', 1), /searchDocsMode/)
 })
+
+// ---------------------------------------------------------------------------
+// 按 id 寻址（2026-10-28）：多个 presenter 并发时下标会随队列变动漂移，
+// 后到的调用者会批错条目。契约 = ids 优先、与 indices 互斥、非法 id 400，
+// 且每次决定都写进决策台账（approve 不再只是"删掉条目"）。
+// ---------------------------------------------------------------------------
+test('api 按 id 批准：只写目标条目、记录决策、indices 与 ids 互斥', async () => {
+  const api = await bootApi()
+  try {
+    api.queue.append({ time: 't1', target: 'user', content: '第一条事实', reason: 'r', cwd: null })
+    api.queue.append({ time: 't2', target: 'user', content: '第二条事实', reason: 'r', cwd: null })
+    const list = await api.request('GET', '/memory-evolve/api/suggestions')
+    assert.equal(list.data.entries.length, 2)
+    const second = list.data.entries[1]
+    assert.match(second.id, /^[0-9a-f]{8}$/, 'GET 必须回稳定 id（老条目按内容派生）')
+
+    const approve = await api.request('POST', '/memory-evolve/api/suggestions/approve', { ids: [second.id] })
+    assert.equal(approve.status, 200)
+    assert.equal(approve.data.remaining, 1)
+    assert.deepEqual(approve.data.decided, [second.id])
+    const written = api.store.entriesOf('user')
+    assert.equal(written.length, 1)
+    assert.ok(written[0].includes('第二条事实'), '必须只写被 id 指定的那条')
+
+    // 决策台账：本测试用 queue.append 直插条目（绕过 enqueueSuggestion），
+    // 所以没有 proposed 行——正好验证"决定行必然落盘、且不依赖入队路径"。
+    const ledger = readFileSync(join(api.dir, 'decisions.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line))
+    assert.deepEqual(ledger.map((row) => row.action), ['approved'])
+    assert.equal(ledger[0].id, second.id)
+    assert.equal(ledger[0].actor, 'user')
+    assert.ok(typeof ledger[0].policyId === 'string' && ledger[0].policyId.includes('balanced'))
+
+    // 负向控制：混用两种寻址、非法 id 形态都必须 400
+    const mixed = await api.request('POST', '/memory-evolve/api/suggestions/approve', { ids: [second.id], indices: [1] })
+    assert.equal(mixed.status, 400)
+    const bad = await api.request('POST', '/memory-evolve/api/suggestions/approve', { ids: ['not-an-id'] })
+    assert.equal(bad.status, 400)
+
+    // 按 id 拒绝剩下的那条
+    const first = list.data.entries[0]
+    const reject = await api.request('POST', '/memory-evolve/api/suggestions/reject', { ids: [first.id] })
+    assert.equal(reject.status, 200)
+    assert.equal(reject.data.remaining, 0)
+  } finally {
+    await api.close()
+    rmSync(api.dir, { recursive: true, force: true })
+  }
+})

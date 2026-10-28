@@ -30,6 +30,27 @@ dsh plugin --profile web add github:csyangwen/dsh-memory-evolve
     reviewInterval: 10       # 每 10 个用户回合审查一次
 ```
 
+**决策策略（待确认建议由谁决定）**：预设 + 逐轨覆盖；P0 只到 dry-run（记录"若开启自动会怎么处理"，不改变行为）：
+
+```yaml
+- id: dsh-memory-evolve
+  config:
+    decisionPolicy: balanced          # strict | balanced | hands-off（balanced = 只有待办自动）
+    decisionPolicyMode: dry-run       # 目前只支持 dry-run；写 enforce 会显式报错（P2 提供）
+    decisionByTarget:                 # 逐轨覆盖预设；key 永不允许 auto
+      'todo-daily': confirm
+    decisionAutoApply:
+      denyPatterns: ['密码', 'token', 'sk-']   # 命中即降回人工确认
+      maxChars: 400
+      requireHits: 1
+    decisionHint: true                # 快照里提示"待确认 N 条"（随条数变化，不破坏前缀缓存）
+```
+
+生效值用 `/memory_review policy` 查看（预设 / 模式 / 逐轨 / 闸门 / 台账状态 / dry-run 预演）。
+未知预设、未知 target、未知 `decisionAutoApply` 键、`key=auto` 一律**启动即报错并点名那个键**。
+待确认建议现在有**稳定 id**（`sha1(target+归一化正文)` 前 8 位）：`/memory_review approve #a1b2c3d4`
+或 API `{ "ids": [...] }`（与 `indices` 互斥），同一条建议被批准两次只写入一次。
+
 **插件异常导致 DSH 无法启动时，临时禁用**（等修复后取消）：同样在 profile 的 `cordis.patch.yml` 加一行即可，无需卸载：
 
 ```yaml
