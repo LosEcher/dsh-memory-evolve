@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { appendInjectionEvent, buildInjectionEvent, injectionLedgerPath, monthKey, readInjectionEvents, MAX_RECORDED_IDS } from '../lib/inject-ledger.js'
+import { appendInjectionEvent, buildInjectionEvent, injectionLedgerPath, monthKey, readInjectionEvents, resetInjectionSampler, decideLedgerRecord, MAX_RECORDED_IDS, DEFAULT_SAMPLE_EVERY, INJECTION_LEDGER_SCHEMA } from '../lib/inject-ledger.js'
 
 const dir = () => mkdtempSync(join(tmpdir(), 'mem-ledger-'))
 
@@ -94,4 +94,80 @@ test('读取端按时间顺序拼接多月文件', () => {
   writeFileSync(join(d, 'events', 'injections-2026-09.jsonl'), `${JSON.stringify(buildInjectionEvent({ sessionId: 'sep' }))}\n`)
   writeFileSync(join(d, 'events', 'injections-2026-10.jsonl'), `${JSON.stringify(buildInjectionEvent({ sessionId: 'oct' }))}\n`)
   assert.deepEqual(readInjectionEvents(d).map((e) => e.sessionId), ['sep', 'oct'])
+})
+
+// ---------------------------------------------------------------------------
+// 采样（schema 2）：内容没变就不必逐次落行 —— 但"合并掉的调用"必须可还原
+// ---------------------------------------------------------------------------
+
+test('采样：内容不变每 N 次落一行，callsSinceLast 记录被合并的调用数', () => {
+  resetInjectionSampler()
+  const d = dir()
+  for (let i = 0; i < 45; i += 1) {
+    appendInjectionEvent(d, {
+      sessionId: 'sess-sample',
+      renderHash: 'aaaaaaaaaaaa',
+      chars: { total: 10 },
+    }, { ts: Date.UTC(2026, 9, 22), every: 20 })
+  }
+  const evs = readInjectionEvents(d)
+  // 第 1 次：hash 从 null → a，视为内容变化 ⇒ 立即落行；
+  // 之后每 20 次落一行 ⇒ 第 21、41 次。共 3 行（45 次调用）。
+  assert.equal(evs.length, 3)
+  assert.equal(evs[0].sampled, false, '首次（hash 变化）不是采样行')
+  assert.equal(evs[0].callsSinceLast, 1)
+  assert.equal(evs[1].sampled, true, '内容未变 ⇒ 采样行')
+  assert.equal(evs[2].sampled, true)
+  // 密度可还原：Σ callsSinceLast = 41；尾部 4 次调用尚未形成落点（进程运行中）
+  assert.equal(evs.reduce((sum, e) => sum + e.callsSinceLast, 0), 41)
+  assert.ok(evs.every((e) => e.renderHash === 'aaaaaaaaaaaa'))
+})
+
+test('采样：内容变化立即落行，且不等待采样窗口', () => {
+  resetInjectionSampler()
+  const d = dir()
+  appendInjectionEvent(d, { sessionId: 's2', renderHash: 'aaaa11112222' }, { ts: Date.UTC(2026, 9, 22) })
+  appendInjectionEvent(d, { sessionId: 's2', renderHash: 'aaaa11112222' }, { ts: Date.UTC(2026, 9, 22) }) // 跳过
+  appendInjectionEvent(d, { sessionId: 's2', renderHash: 'bbbb33334444' }, { ts: Date.UTC(2026, 9, 22) }) // 变化 ⇒ 落行
+  const evs = readInjectionEvents(d)
+  assert.equal(evs.length, 2)
+  assert.equal(evs[1].renderHash, 'bbbb33334444')
+  assert.equal(evs[1].sampled, false)
+  assert.equal(evs[1].callsSinceLast, 2, '被跳过的那次也计入 callsSinceLast')
+})
+
+test('采样：不带 renderHash 时保持旧行为（逐次落行）', () => {
+  resetInjectionSampler()
+  const d = dir()
+  appendInjectionEvent(d, { sessionId: 's3', chars: { total: 1 } }, { ts: Date.UTC(2026, 9, 22) })
+  appendInjectionEvent(d, { sessionId: 's3', chars: { total: 1 } }, { ts: Date.UTC(2026, 9, 22) })
+  assert.equal(readInjectionEvents(d).length, 2)
+})
+
+test('采样：不同 sessionId 的状态互不影响', () => {
+  resetInjectionSampler()
+  const d = dir()
+  appendInjectionEvent(d, { sessionId: 'a', renderHash: 'cccc55556666' }, { ts: Date.UTC(2026, 9, 22) })
+  appendInjectionEvent(d, { sessionId: 'b', renderHash: 'cccc55556666' }, { ts: Date.UTC(2026, 9, 22) })
+  const evs = readInjectionEvents(d)
+  assert.equal(evs.length, 2, '两个会话各自的首次都必须落行')
+})
+
+test('schema 2 字段归一：renderHash 只收十六进制，模式字段只收 full/summary', () => {
+  const ev = buildInjectionEvent({
+    renderHash: 'NOT-A-HASH',
+    memoryMode: 'weird',
+    userMode: 'summary',
+    callsSinceLast: 7,
+    sampled: true,
+    chars: { total: 10, key: 1, memory: 8, user: 1 },
+  })
+  assert.equal(ev.schema, 2)
+  assert.equal(ev.renderHash, null)
+  assert.equal(ev.memoryMode, null)
+  assert.equal(ev.userMode, 'summary')
+  assert.equal(ev.callsSinceLast, 7)
+  assert.equal(ev.sampled, true)
+  assert.equal(ev.chars.memory, 8)
+  assert.equal(ev.chars.user, 1)
 })
