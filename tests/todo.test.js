@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { TodoStore, TODO_HEADER, TODO_TARGETS, parseTodoEntry, stampTodoLine, todoToolDefinition } from '../lib/todo.js'
+import { TodoStore, TODO_HEADER, TODO_STATUSES, TODO_TARGETS, parseTodoEntry, stampTodoLine, todoToolDefinition } from '../lib/todo.js'
 import { ArchiveStore, MemoryStore, SuggestionQueue, projectHash, todayStamp } from '../lib/store.js'
 import { approveSuggestions, archiveSuggestions, enqueueSuggestion, promoteArchived, suggestToolDefinition } from '../lib/review.js'
 import { installApi } from '../lib/api.js'
@@ -843,6 +843,42 @@ test('dtodo tool exposes projects + project filter and renders the tag', async (
     assert.ok(listed.message.includes('[proj: dsfolder,los]'), listed.message)
     const none = await tool.execute({ action: 'list', target: 'work', project: 'none', all: true }, {})
     assert.ok(!none.message.includes('替写者守边界'), none.message)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// 状态枚举一致性（2026-10-28）：工具 schema 曾写死 pending|done，于是
+// doing/blocked/cancelled 的条目既不能过滤也不能经 schema 写入，而存储层
+// 一直支持五态。这条断言把「schema 枚举 === TODO_STATUSES」钉死。
+// ---------------------------------------------------------------------------
+test('dtodo schema：status 枚举与 store 同源，且 blocked/doing 可写可查', async () => {
+  const dir = tempDir()
+  try {
+    const store = new TodoStore(dir)
+    const tool = todoToolDefinition({ todoToolName: 'dtodo' }, store)
+    assert.deepEqual(tool.parameters.properties.status.enum, TODO_STATUSES,
+      'tool schema 的 status 枚举必须与 TODO_STATUSES 完全一致（防止再次漂移）')
+
+    const added = await tool.execute({ action: 'add', target: 'work', content: '卡住的事' }, {})
+    assert.equal(added.ok, true, added.message)
+
+    // blocked：经 schema 写入 + 按 blocked 过滤
+    const toBlocked = await tool.execute({ action: 'update', target: 'work', id: added.id, status: 'blocked' }, {})
+    assert.equal(toBlocked.ok, true, toBlocked.message)
+    const blocked = await tool.execute({ action: 'list', target: 'work', status: 'blocked', all: true }, {})
+    assert.ok(blocked.message.includes('卡住的事'), blocked.message)
+
+    // doing：同上
+    const toDoing = await tool.execute({ action: 'update', target: 'work', id: added.id, status: 'doing' }, {})
+    assert.equal(toDoing.ok, true, toDoing.message)
+    const doing = await tool.execute({ action: 'list', target: 'work', status: 'doing', all: true }, {})
+    assert.ok(doing.message.includes('卡住的事'), doing.message)
+
+    // 负向：状态已变 ⇒ 再按 blocked 查不到（证明过滤真的生效，不是恒真）
+    const stale = await tool.execute({ action: 'list', target: 'work', status: 'blocked', all: true }, {})
+    assert.ok(!stale.message.includes('卡住的事'), stale.message)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
