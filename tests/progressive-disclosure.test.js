@@ -236,3 +236,66 @@ test('renderSnapshot：auto 模式按条目数+字符数双阈值判定', () => 
   assert.ok(many.includes('摘要模式'), 'over entry threshold falls back to summary in auto mode')
   clean(dir)
 })
+
+// ---------------------------------------------------------------------------
+// 全局记忆轨（memory/user）渐进式披露（2026-10-28）
+// 判据：off 逐字保持旧行为；on 只注入 `[id] 摘要`；expand 能取回全文；
+// auto 在小集合上不改变行为。
+// ---------------------------------------------------------------------------
+
+test('全局记忆轨：off 全量（旧行为）/ on 摘要 + [id] / expand 取全文', async () => {
+  const dir = tempDir()
+  try {
+    const store = new MemoryStore(dir)
+    store.add('memory', '第一条全局事实：第一行摘要\n第二行只在全文里出现')
+    store.add('memory', '第二条全局事实')
+    const agent = { session: { id: 's', header: { cwd: '/proj/mem-pd' } } }
+
+    // off（旧行为）：全文注入、条目不带 [id] 前缀
+    const off = renderSnapshot(resolveConfig({ memoryDir: dir, memoryProgressiveDisclosure: 'off' }), store, agent)
+    assert.ok(off.includes('第二行只在全文里出现'), 'off keeps full text (legacy behavior)')
+    assert.ok(!/^- \[[0-9a-f]{8}\]/m.test(off), 'off must not add id prefixes')
+
+    // on：摘要注入（每条一行 + [id]），正文不出现在快照里
+    const on = renderSnapshot(resolveConfig({ memoryDir: dir, memoryProgressiveDisclosure: 'on' }), store, agent)
+    assert.ok(on.includes('摘要模式'))
+    assert.ok(on.includes('第一条全局事实：第一行摘要'), 'first line becomes the summary')
+    assert.ok(!on.includes('第二行只在全文里出现'), 'full body must not leak in summary mode')
+
+    // expand（target=memory）：按 id 取回全文
+    const { legacyIdFor } = await import('../lib/sync/entryid.js')
+    const entries = store.entriesOf('memory')
+    const id = extractEntryId(entries[0]) ?? legacyIdFor(entries[0])
+    assert.ok(typeof id === 'string' && id.length > 0)
+    const ctx = fakeCtx()
+    apply(ctx, { memoryDir: dir })
+    const tool = ctx.state.tools.find((t) => t.name === 'memory')
+    const exec = { agent: { id: 'a', session: { header: { cwd: '/proj/mem-pd' } } }, callId: 'c1', signal: new AbortController().signal }
+    const expanded = await tool.execute({ action: 'expand', target: 'memory', id }, exec)
+    assert.equal(expanded.ok, true)
+    assert.ok(expanded.entries[0].includes('第二行只在全文里出现'))
+    assert.ok(!expanded.entries[0].includes(`[id:${id}]`), 'id prefix stripped from expand output')
+    const miss = await tool.execute({ action: 'expand', target: 'memory', id: 'ffffffff' }, exec)
+    assert.equal(miss.ok, false)
+  } finally {
+    clean(dir)
+  }
+})
+
+test('全局记忆轨 auto：小集合保持全量（默认值不改变现状），超阈值转摘要', () => {
+  const dir = tempDir()
+  try {
+    const store = new MemoryStore(dir)
+    store.add('memory', '唯一一条全局事实')
+    const agent = { session: { id: 's', header: { cwd: '/proj/mem-pd2' } } }
+    // 默认配置 = auto：1 条短事实在阈值内 ⇒ 全量（与旧版逐字一致）
+    const small = renderSnapshot(resolveConfig({ memoryDir: dir }), store, agent)
+    assert.ok(!small.includes('摘要模式'), 'default auto + small set keeps full text')
+    assert.ok(small.includes('唯一一条全局事实'))
+    // 把条目阈值压到 0 ⇒ auto 转摘要（证明阈值真的参与判定）
+    const forced = renderSnapshot(resolveConfig({ memoryDir: dir, memoryFullInjectThreshold: 0 }), store, agent)
+    assert.ok(forced.includes('摘要模式'), 'auto falls back to summary over entry threshold')
+  } finally {
+    clean(dir)
+  }
+})
