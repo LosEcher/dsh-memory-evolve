@@ -50,6 +50,21 @@ dsh plugin --profile web add github:csyangwen/dsh-memory-evolve
 生效值用 `/memory_review policy` 查看（预设 / 模式 / 逐轨 / 闸门 / 台账状态 / dry-run 预演 / **自动采纳与撤销率读数**）。
 未知预设、未知 target、未知 `decisionAutoApply` 键、`decisionByTarget.key=auto` 一律**启动即报错并点名那个键**。
 
+**记忆生命周期（槽位 / 取代 / 失效）**：同一事实会更新时，用 `slot` 表达"这是同一个槽位"，
+系统就自动把旧版本标为 `deprecated`（不删除、不再注入、仍可按 id 读回），并在新条写 `[supersedes:<旧id>]`：
+
+```yaml
+# 写入时（memory 工具）
+memory(action=add, target=memory, slot=forgejo-ssh-port, content="forgejo 的 SSH 端口是 3222")
+# ⇒ 同槽位的旧条目自动 [deprecated:<新id>]，新条 [supersedes:<旧id>]
+memory(action=supersede, target=memory, id=a1b2c3d4, content="…")   # 按 id 取代（memory/user）
+memory(action=replace, target=memory, id=a1b2c3d4, content="…")      # 按 id 替换（修 multi_match 死锁）
+```
+
+体检：`/memory_review stale [--record]`（`--record` 追加一行到 `~/.dsh/memories/memory-metrics.jsonl`）。
+判据全部是**结构**的（槽位相等 / id 相等），不是文本相似度——回测证明后者在本语料上零召回。
+契约、指标定义、验收清单与已知局限见 **[docs/lifecycle.md](docs/lifecycle.md)**。
+
 **要不要开 enforce，用读数决定，不用感觉决定**：`/memory_review policy` 的
 `auto_applied / reverted / 撤销率` 是唯一判据 —— 自动采纳 30 天后撤销率 <10% 可维持，
 >20% 就把 `decisionPolicyMode` 改回 dry-run 并把触发撤销的那类内容加进 `denyPatterns`。
