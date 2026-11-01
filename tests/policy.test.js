@@ -29,14 +29,18 @@ function tempDir() {
   return mkdtempSync(join(tmpdir(), 'mem-policy-'))
 }
 
-test('预设解析：balanced 只自动待办，key 永远 confirm；hands-off 放开 memory/user', () => {
+test('预设解析：balanced 只自动待办，key 仅 trusted 放开；hands-off 放开 memory/user', () => {
   const strict = resolveDecisionPolicy({ decisionPolicy: 'strict' })
   const balanced = resolveDecisionPolicy({ decisionPolicy: 'balanced' })
   const handsOff = resolveDecisionPolicy({ decisionPolicy: 'hands-off' })
+  // 2026-11-01 变更：`key` 不再"任何预设都不许自动"。实测 63/63 条 key 建议全部
+  // 被采纳、0 拒绝 ⇒ 由 `trusted` 预设放开（且只在 enforce 下真正生效），
+  // 同时禁止 `decisionByTarget.key='auto'` 这种绕开整套策略的单轨硬拨。
   for (const policy of [strict, balanced, handsOff]) {
-    assert.equal(policy.actions.key, 'confirm', 'key 轨任何预设都不允许自动')
-    assert.equal(policy.actions.memory === 'auto', policy.preset === 'hands-off')
+    assert.equal(policy.actions.key, 'confirm', `${policy.preset} 不应自动写 key`)
   }
+  assert.equal(resolveDecisionPolicy({ decisionPolicy: 'trusted' }).actions.key, 'auto')
+  assert.equal(handsOff.actions.memory === 'auto', true)
   assert.equal(strict.actions['todo-work'], 'confirm')
   assert.equal(balanced.actions['todo-work'], 'auto')
   assert.equal(handsOff.actions['todo-work'], 'auto')
@@ -60,13 +64,16 @@ test('逐轨覆盖优先于预设（可按具体待办轨细分）', () => {
 
 test('fail-closed：非法配置抛错并点名键（负向控制）', () => {
   assert.throws(() => validateDecisionConfig({ decisionPolicy: 'yolo' }), /decisionPolicy/)
-  assert.throws(() => validateDecisionConfig({ decisionPolicyMode: 'enforce' }), /decisionPolicyMode .*enforce/)
+  // enforce 现在是合法模式（2026-11-01）；非法值仍要点名
+  assert.throws(() => validateDecisionConfig({ decisionPolicyMode: 'enforce-now' }), /decisionPolicyMode .*enforce-now/)
+  assert.doesNotThrow(() => validateDecisionConfig({ decisionPolicy: 'trusted', decisionPolicyMode: 'enforce' }))
   assert.throws(() => validateDecisionConfig({ decisionByTarget: { memroy: 'auto' } }), /decisionByTarget.*memroy/)
   assert.throws(() => validateDecisionConfig({ decisionByTarget: { memory: 'sometimes' } }), /decisionByTarget\["memory"\]/)
   assert.throws(() => validateDecisionConfig({ decisionByTarget: { key: 'auto' } }), /key 轨设为 auto/)
   assert.throws(() => validateDecisionConfig({ decisionAutoApply: { denyPattern: ['x'] } }), /decisionAutoApply.*denyPattern/)
   assert.throws(() => validateDecisionConfig({ decisionAutoApply: { denyPatterns: ['('] } }), /不是合法正则/)
   assert.throws(() => validateDecisionConfig({ decisionAutoApply: { maxChars: 0 } }), /maxChars/)
+  assert.throws(() => validateDecisionConfig({ decisionAutoApply: { keyMaxChars: 0 } }), /keyMaxChars/)
   assert.throws(() => validateDecisionConfig({ decisionAutoApply: { requireHits: -1 } }), /requireHits/)
   assert.throws(() => validateDecisionConfig({ decisionTtlDays: 0 }), /decisionTtlDays/)
   // 合法配置不得误报
@@ -129,7 +136,34 @@ test('memory_review policy：打印生效值（预设/模式/逐轨/闸门/台�
     assert.match(text, /todo-daily=confirm/)
     assert.match(text, /todo-work=auto/)
     assert.match(text, /denyPatterns \d+ 条/)
-    assert.match(text, /enforce（自动采纳）尚未实现/)
+    assert.match(text, /keyMaxChars 600/, 'key 的长度闸必须出现在生效值里（否则等于没有）')
+    assert.match(text, /自动采纳读数：auto_applied 0 条 · reverted 0 条 · 撤销率 —/)
+    assert.match(text, /当前是 dry-run/)
+    assert.match(text, /decisionPolicyMode 设为 enforce/, '要告诉人怎么真的开启')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('memory_review policy：enforce 模式下文案与读数切换（不是同一句话糊到底）', () => {
+  const dir = tempDir()
+  try {
+    const config = resolveConfig({
+      memoryDir: dir,
+      commandName: 'memory_review',
+      decisionPolicy: 'trusted',
+      decisionPolicyMode: 'enforce',
+    })
+    const store = new MemoryStore(dir)
+    const todoStore = new TodoStore(dir)
+    const archive = new ArchiveStore(dir)
+    const queue = new SuggestionQueue(join(dir, 'SUGGESTIONS.jsonl'))
+    const command = reviewCommand(config, store, todoStore, archive, queue)
+    const result = command.handler({ rawInput: 'policy' })
+    assert.equal(result.kind, 'success')
+    assert.match(result.text, /trusted · 模式 enforce/)
+    assert.match(result.text, /当前是 enforce/)
+    assert.match(result.text, /revert <#id>/, 'enforce 下必须告诉人怎么撤销')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

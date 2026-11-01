@@ -30,24 +30,31 @@ dsh plugin --profile web add github:csyangwen/dsh-memory-evolve
     reviewInterval: 10       # 每 10 个用户回合审查一次
 ```
 
-**决策策略（待确认建议由谁决定）**：预设 + 逐轨覆盖；P0 只到 dry-run（记录"若开启自动会怎么处理"，不改变行为）：
+**决策策略（待确认建议由谁决定）**：预设 + 逐轨覆盖；两种模式——`dry-run`（默认，只记录"若开启自动会怎么处理"，不改变行为）与 `enforce`（判 auto 的直接写入并记 `auto_applied`，写失败退回入队）：
 
 ```yaml
 - id: dsh-memory-evolve
   config:
-    decisionPolicy: balanced          # strict | balanced | hands-off（balanced = 只有待办自动）
-    decisionPolicyMode: dry-run       # 目前只支持 dry-run；写 enforce 会显式报错（P2 提供）
-    decisionByTarget:                 # 逐轨覆盖预设；key 永不允许 auto
+    decisionPolicy: balanced          # strict | balanced | hands-off | trusted（trusted = 含 key 轨全自动，仅在 enforce 下真正生效）
+    decisionPolicyMode: dry-run       # dry-run | enforce；enforce 见下方"撤销率"判据
+    decisionByTarget:                 # 逐轨覆盖预设；key 不接受在此设 auto（要放开请用 trusted 预设）
       'todo-daily': confirm
     decisionAutoApply:
       denyPatterns: ['密码', 'token', 'sk-']   # 命中即降回人工确认
-      maxChars: 400
+      maxChars: 400                   # memory/user 轨长度闸
+      keyMaxChars: 600                # key 轨单独的长度闸（每回合注入，成本更高）
       requireHits: 1
     decisionHint: true                # 快照里提示"待确认 N 条"（随条数变化，不破坏前缀缓存）
 ```
 
-生效值用 `/memory_review policy` 查看（预设 / 模式 / 逐轨 / 闸门 / 台账状态 / dry-run 预演）。
-未知预设、未知 target、未知 `decisionAutoApply` 键、`key=auto` 一律**启动即报错并点名那个键**。
+生效值用 `/memory_review policy` 查看（预设 / 模式 / 逐轨 / 闸门 / 台账状态 / dry-run 预演 / **自动采纳与撤销率读数**）。
+未知预设、未知 target、未知 `decisionAutoApply` 键、`decisionByTarget.key=auto` 一律**启动即报错并点名那个键**。
+
+**要不要开 enforce，用读数决定，不用感觉决定**：`/memory_review policy` 的
+`auto_applied / reverted / 撤销率` 是唯一判据 —— 自动采纳 30 天后撤销率 <10% 可维持，
+>20% 就把 `decisionPolicyMode` 改回 dry-run 并把触发撤销的那类内容加进 `denyPatterns`。
+撤销用 `/memory_review revert #a1b2c3d4`（归档后可回读，不销毁）。
+依据（2026-11-01 实测）：本机 85 条建议 → 85 条采纳、0 拒绝，逐条确认零信息量。
 待确认建议现在有**稳定 id**（`sha1(target+归一化正文)` 前 8 位）：`/memory_review approve #a1b2c3d4`
 或 API `{ "ids": [...] }`（与 `indices` 互斥），同一条建议被批准两次只写入一次。
 
