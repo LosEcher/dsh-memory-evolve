@@ -41,6 +41,12 @@
 
 **不删除是刻意的**：被取代的条目是"为什么改成这样"的唯一证据；删掉就只剩结论。
 
+**标记只在「头部连续块」里算数**（2026-11-01 实测修正）：解析器从条目开头连续读取
+`[...]` 标记，遇到第一段非标记内容立即停止；正文里引用标记字面（例如讲解本契约的条目
+写了 `` `[deprecated]` ``）**不算标记**。最初的实现只看"前 200 字符"，结果把一条讲解
+生命周期的 key 条目误判成已失效（`stale` 假红 `deprecated=1`）——已修，并加了负向控制
+测试（`tests/lifecycle.test.js` 最后一条）。
+
 ## 3. 行为变化（对调用方）
 
 | 操作 | 变化 |
@@ -81,15 +87,22 @@
 ## 5. 验收清单（全部可机械复跑）
 
 ```bash
-# 单元判据（含负向控制：不同槽位不得互相取代；并存时 replace 必须 multiMatch 而 replaceById 必须成功）
+# 单元判据（含两条负向控制：不同槽位不得互相取代；正文引用标记字面不得被判失效）
 node --test tests/lifecycle.test.js
 
 # 全量回归（预期：仅 search-docs 两例因本机缺 rg 而红，属既有的环境依赖问题）
 npm test
 
-# 真实库体检（只读）+ 落一行指标
-node -e "…执行 memory_review stale --record…"
+# 真实库体检 + 三态退出码（探针入口，与每日作业同一脚本）
+node scripts/lifecycle-probe.mjs            # 0 门槛全成立 / 1 有门槛不成立 / 2 判不了
+node scripts/lifecycle-probe.mjs --dry-run  # 只打印，不写指标与状态
 ```
+
+**每日采集已挂 launchd**：`com.echerlos.memory-lifecycle-probe`（每日 08:50，
+模板 `dsfolder/scripts/deploy/com.echerlos.memory-lifecycle-probe.plist`，
+已在 `dsfolder/.scheduler/curation.json` 登记、`check-scheduler-registry.mjs --host` 通过）。
+它的证据面是脚本自写的 `~/.dsh/logs/memory-lifecycle/probe-YYYYMMDD.log`
+与 `~/.dsh/state/memory-lifecycle.json`，**不认** launchd 的 out/err。
 
 **绿的标准**（三条同时成立）：
 
@@ -113,6 +126,10 @@ user     1 条（active 1）                     · slots 0 · …              
 key    302 条（active 302 / deprecated 0）    · slots 0 · …                      · 文本候选 1
 合计   581 条 · 同槽位多 active 0 · 取代边未落实 0
 ```
+
+> 2026-11-01 22:59 复测：582 条（新增两条 key 事实）· active 582 / deprecated 0 ·
+> `slots 0` · 两门槛 0 · 文本候选 4；探针首跑 `verdict=warn code=1`，唯一 problem 是
+> `slots=0（空分母）` —— 这正是"机制在位但还没有消费者"的形态，不是记忆有问题。
 
 读法：两个门槛值现在是 **0 但分母为 0**（还没有任何槽位/结构边）。真实存量问题是
 **4 处文本候选**（条目自己声称取代、被取代方仍在），它们是第一批需要人工/模型用

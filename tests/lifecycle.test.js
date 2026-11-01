@@ -180,3 +180,24 @@ test('normalizeSlot：归一化与拒绝（非法字符、空值）', () => {
   assert.equal(normalizeSlot('   ').ok, false)
   assert.equal(normalizeSlot('***').ok, false)
 })
+
+test('负向控制：正文里引用标记字面，不得被当成真标记（2026-11-01 真实误报回归）', () => {
+  // 真实事故：讲解生命周期契约的 key 条目正文里写了 `[deprecated]`，被"前 200 字符"
+  // 判据当成失效标记 ⇒ stale 报 deprecated=1（假红）。标记只在**头部连续块**里算数。
+  const prose = '[2026-11-01] 生命周期契约：头部顺序固定 `[deprecated] [slot] [supersedes]`，此处只是举例'
+  const parsed = parseLifecycle(prose)
+  assert.equal(parsed.deprecated, false, '正文引用不是标记')
+  assert.equal(parsed.slot, null)
+  assert.equal(isActive(prose), true)
+
+  // 日期之后（头部块已终止）出现的标记字面同样不算
+  assert.equal(parseLifecycle('[2026-11-01] 正文提到 [deprecated] 这个词').deprecated, false)
+
+  // 真正的连续头部块仍必须认出来
+  const real = '[id:abababab] [slot:port] [supersedes:cdcdcdcd] [deprecated:efefefef] [2026-11-01] 正文'
+  const p2 = parseLifecycle(real)
+  assert.equal(p2.slot, 'port')
+  assert.equal(p2.supersedes, 'cdcdcdcd')
+  assert.equal(p2.deprecatedBy, 'efefefef')
+  assert.equal(isActive(real), false)
+})
