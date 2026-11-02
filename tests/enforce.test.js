@@ -81,17 +81,34 @@ test('dry-run：同样的 trusted 配置仍进队列，盘上不得有痕迹（�
   }
 })
 
-test('enforce 的负向控制：命中 denyPatterns ⇒ 退回队列（不得自动写）', () => {
+test('enforce 的负向控制：命中 denyPatterns（值形态）⇒ 退回队列（不得自动写）', () => {
   const r = rig({ decisionPolicy: 'trusted', decisionPolicyMode: 'enforce' })
   try {
-    const content = '把数据库 token 换成新的那个'
+    const content = '把数据库口令换成 API_KEY=sk-live-AbCdEf0123456789 那个'
     const out = enqueueSuggestion(r.queue, 'memory', content, 'test', r.agent, {
       policy: resolveDecisionPolicy(r.config),
       apply: r.apply,
     })
     assert.notEqual(out.autoApplied, true)
     assert.equal(r.queue.read().length, 1)
-    assert.equal(r.memoryText().includes(content), false, '含敏感词的条目不自动写')
+    assert.equal(r.memoryText().includes(content), false, '含真凭据的条目不自动写')
+  } finally {
+    rmSync(r.dir, { recursive: true, force: true })
+  }
+})
+
+test('enforce 的正向控制：只谈论 token/密码的普通技术结论 ⇒ 直接自动写入（不误伤）', () => {
+  const r = rig({ decisionPolicy: 'trusted', decisionPolicyMode: 'enforce' })
+  try {
+    // 旧实现（词法表）会把这条拦进队列 —— 这正是 2026-11-02 要修掉的误伤
+    const content = '网关的 access token 在宿主重启后会失效，需要重新取'
+    const out = enqueueSuggestion(r.queue, 'memory', content, 'test', r.agent, {
+      policy: resolveDecisionPolicy(r.config),
+      apply: r.apply,
+    })
+    assert.equal(out.autoApplied, true, '讲 token 的技术结论应自动采纳')
+    assert.equal(r.queue.read().length, 0, '不得进队列')
+    assert.equal(r.memoryText().includes('access token'), true, '内容要真的落盘')
   } finally {
     rmSync(r.dir, { recursive: true, force: true })
   }
@@ -161,6 +178,10 @@ test('key 的长度闸与 memory 分开：keyMaxChars 决定 key 轨能否自动
   const long = evaluateSuggestion(policy, key(601))
   assert.equal(long.action, 'confirm')
   assert.match(long.reason, /^too-long:601>600/, '要报出命中的是 key 的那条闸')
-  // 同一条 500 字若在 memory 轨，走 maxChars=400 ⇒ confirm（两轨成本不同）
-  assert.equal(evaluateSuggestion(policy, { target: 'memory', content: 'm'.repeat(500), hits: 1 }).action, 'confirm')
+  // 同一条 500 字在 memory 轨走 maxChars=800（2026-11-02 由 400 提到 800）⇒ auto；
+  // 900 字才越线。两轨成本不同这件事仍成立，只是分界移动了。
+  assert.equal(evaluateSuggestion(policy, { target: 'memory', content: 'm'.repeat(500), hits: 1 }).action, 'auto')
+  const memLong = evaluateSuggestion(policy, { target: 'memory', content: 'm'.repeat(801), hits: 1 })
+  assert.equal(memLong.action, 'confirm')
+  assert.match(memLong.reason, /^too-long:801>800/, 'memory 轨报的是 maxChars 而非 keyMaxChars')
 })

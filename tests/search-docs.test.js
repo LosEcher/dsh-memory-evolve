@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import {
   SearchAborted, contentCandidateLimit, createSearchDocsController, createSearcher,
@@ -18,6 +19,16 @@ import {
 // This suite pins the legacy Chinese output contract; i18n.test.js covers English.
 import { setLocale } from '../lib/i18n.js'
 setLocale('zh')
+
+/**
+ * `rg` 是否可用 —— 探测类断言必须按真实可用性排列，不能写死。
+ * 2026-11-02 实证：本机 rg 装在 `/opt/homebrew/bin` 但不在沙箱 shell 的 PATH 里，
+ * 于是两条断言（期望 `['mdfind','rg','walk']`）在该环境下必红、在开发者 shell 里必绿
+ * —— 那正是本仓明令禁止的「判据随环境变」。这里显式问一次，再按结果排列。
+ */
+const rgAvailable = (() => {
+  try { return spawnSync('rg', ['--version'], { stdio: 'ignore' }).status === 0 } catch { return false }
+})()
 
 /** 快速构造一个已解析的插件配置。 */
 function baseConfig(overrides = {}) {
@@ -80,7 +91,8 @@ test('resolveProviders：auto 按平台排序并探测（本机 darwin → mdfin
   assert.ok(names.includes('walk'))
   // 显式顺序
   const explicit = resolveProviders(baseConfig({ searchDocsProviders: ['rg', 'walk'] }), 'darwin')
-  assert.deepEqual(explicit.map((p) => p.name), ['rg', 'walk'])
+  // 显式列表也过可用性探测：rg 不在 PATH 时只剩 walk（这是行为事实，不是放宽）
+  assert.deepEqual(explicit.map((p) => p.name), rgAvailable ? ['rg', 'walk'] : ['walk'])
   // 未知 provider 报错
   assert.throws(() => resolveProviders(baseConfig({ searchDocsProviders: ['nope'] }), 'darwin'))
 })
@@ -219,7 +231,11 @@ test('控制器：启用注册、禁用注销、状态', () => {
   assert.equal(registered?.name, 'memory_evolve_search_local_files', '启用后注册工具')
   const status = ctrl.status()
   assert.equal(status.enabled, true)
-  assert.deepEqual(status.providers, ['mdfind', 'rg', 'walk'])
+  assert.deepEqual(
+    status.providers,
+    rgAvailable ? ['mdfind', 'rg', 'walk'] : ['mdfind', 'walk'],
+    'status 必须反映真实探测结果（rg 缺席时不得硬写成在场）',
+  )
   enabled = false
   ctrl.sync()
   assert.equal(registered, null, '禁用后注销工具')

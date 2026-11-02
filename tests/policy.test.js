@@ -89,10 +89,17 @@ test('auto 的三道闸：命中拦截项 / 过长 / hits 不足都降回 confir
   const lowHits = evaluateSuggestion(policy, todo('把 dsfolder 门禁跑一遍', 1))
   assert.equal(lowHits.action, 'confirm')
   assert.match(lowHits.reason, /^hits<2/)
-  // 命中 denyPatterns（默认含 token/密码）
-  const deny = evaluateSuggestion(policy, todo('数据库 token 换成新的'))
+  // 命中 denyPatterns：判据是**值形态**（2026-11-02 起），不是"出现了敏感词"
+  const deny = evaluateSuggestion(policy, todo('把 API_KEY=sk-live-AbCdEf0123456789 换成新的'))
   assert.equal(deny.action, 'confirm')
   assert.match(deny.reason, /^deny-pattern:/)
+  // 反向控制：讲 token 这件事本身**不该**被拦（旧实现会拦，那正是要消灭的误伤）
+  assert.equal(evaluateSuggestion(policy, todo('网关的 access token 会在重启后失效')).action, 'auto')
+  // 正向控制：手机号 / 18 位身份证仍按强 PII 拦（术语放宽 ≠ PII 放宽）
+  assert.match(evaluateSuggestion(policy, todo('联系 13801234567 确认')).reason, /^deny-pattern:/)
+  assert.match(evaluateSuggestion(policy, todo('证件 110101199001011234 已登记')).reason, /^deny-pattern:/)
+  // 反向控制：40 位 git hash 是合法内容，不得被当高熵密钥（本仓记忆里满篇都是）
+  assert.equal(evaluateSuggestion(policy, todo('落地提交 6fe64a4f9778b1c2d3e4f5a6b7c8d9e0f1a2b3c4 已推')).action, 'auto')
   // 过长
   const long = evaluateSuggestion(policy, todo('x'.repeat(AUTO_APPLY_DEFAULTS.maxChars + 1)))
   assert.equal(long.action, 'confirm')
